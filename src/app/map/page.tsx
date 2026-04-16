@@ -1,5 +1,19 @@
-import { ParksMap } from "@/components/parks";
+"use client";
+
+import dynamic from "next/dynamic";
 import { parks } from "@/lib/parks";
+
+const ParksMap = dynamic(
+  () => import("@/components/parks/ParksMap").then((module) => module.ParksMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[420px] rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600 shadow-sm">
+        Loading map...
+      </div>
+    ),
+  },
+);
 
 export default function MapPage() {
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { ParkCard } from "@/components/parks";
 import { useParks } from "@/components/providers/ParksProvider";
 import { parks } from "@/lib/parks";
@@ -10,6 +10,34 @@ type ParksTab = "explore" | "milestones";
 type MilestoneStatus = "visited" | "available" | "locked";
 
 const TOTAL_MILESTONES: number = 63;
+const TIMELINE_VIEWBOX_WIDTH = 1000;
+const TIMELINE_START_Y = 56;
+const TIMELINE_LEVEL_SPACING = 152;
+const TIMELINE_END_PADDING = 96;
+const TIMELINE_LEFT_X = 420;
+const TIMELINE_RIGHT_X = 580;
+
+type TimelineNodePosition = {
+  x: number;
+  y: number;
+};
+
+function buildTimelinePath(positions: TimelineNodePosition[]): string {
+  if (positions.length === 0) {
+    return "";
+  }
+
+  const [firstPosition, ...remainingPositions] = positions;
+
+  return remainingPositions.reduce((path, position, index) => {
+    const previousPosition = positions[index];
+    const controlOffsetY = (position.y - previousPosition.y) * 0.46;
+
+    return `${path} C ${previousPosition.x} ${previousPosition.y + controlOffsetY}, ${position.x} ${
+      position.y - controlOffsetY
+    }, ${position.x} ${position.y}`;
+  }, `M ${firstPosition.x} ${firstPosition.y}`);
+}
 
 export default function ParksPage() {
   const { isInWishlist, isVisited } = useParks();
@@ -81,6 +109,19 @@ export default function ParksPage() {
   const completedMilestones = milestones.filter((milestone) => milestone.status === "visited").length;
   const milestoneProgress =
     TOTAL_MILESTONES === 0 ? 0 : Math.round((completedMilestones / TOTAL_MILESTONES) * 100);
+  const timelineNodePositions = useMemo(
+    () =>
+      milestones.map((_, index) => ({
+        x: index % 2 === 0 ? TIMELINE_LEFT_X : TIMELINE_RIGHT_X,
+        y: TIMELINE_START_Y + index * TIMELINE_LEVEL_SPACING,
+      })),
+    [milestones],
+  );
+  const timelinePath = useMemo(() => buildTimelinePath(timelineNodePositions), [timelineNodePositions]);
+  const timelineHeight =
+    timelineNodePositions.length === 0
+      ? TIMELINE_START_Y + TIMELINE_END_PADDING
+      : timelineNodePositions[timelineNodePositions.length - 1].y + TIMELINE_END_PADDING;
 
   return (
     <section className="space-y-8">
@@ -174,80 +215,113 @@ export default function ParksPage() {
             </p>
           </div>
 
-          <div className="relative">
-            <div className="absolute bottom-0 left-1/2 top-0 w-[3px] -translate-x-1/2 rounded-full bg-slate-200/90" />
-            <div
-              className="animate-timeline-draw absolute left-1/2 top-0 w-[3px] -translate-x-1/2 rounded-full bg-gradient-to-b from-emerald-500 via-lime-400 to-cyan-400"
-              style={{ height: `${milestoneProgress}%` }}
-            />
+          <div className="relative overflow-hidden sm:overflow-visible" style={{ height: timelineHeight }}>
+            <svg
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 h-full w-full"
+              preserveAspectRatio="none"
+              viewBox={`0 0 ${TIMELINE_VIEWBOX_WIDTH} ${timelineHeight}`}
+            >
+              <defs>
+                <linearGradient id="milestone-timeline-gradient" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" />
+                  <stop offset="52%" stopColor="#84cc16" />
+                  <stop offset="100%" stopColor="#06b6d4" />
+                </linearGradient>
+              </defs>
+              <path
+                d={timelinePath}
+                fill="none"
+                pathLength={100}
+                stroke="#e2e8f0"
+                strokeLinecap="round"
+                strokeWidth={10}
+              />
+              <path
+                d={timelinePath}
+                fill="none"
+                pathLength={100}
+                stroke="url(#milestone-timeline-gradient)"
+                strokeDasharray="100"
+                strokeDashoffset={100 - milestoneProgress}
+                strokeLinecap="round"
+                strokeWidth={8}
+                className="transition-[stroke-dashoffset] duration-700 ease-out"
+              />
+            </svg>
 
-            <div className="space-y-0">
-              {milestones.map((milestone, index) => {
-                const isRightAligned = index % 2 === 0;
-                const cardClassName =
-                  milestone.status === "visited"
-                    ? "border-emerald-100 bg-emerald-50/35"
-                    : milestone.status === "available"
-                      ? "border-slate-200 bg-white/95"
-                      : "border-slate-200 bg-slate-100/80 opacity-60";
-                const nodeClassName =
-                  milestone.status === "visited"
-                    ? "border-emerald-500 bg-emerald-500 text-white"
-                    : milestone.status === "available"
-                      ? "border-slate-300 bg-white text-slate-700"
-                      : "border-slate-300 bg-slate-300 text-slate-500 opacity-80";
+            {milestones.map((milestone, index) => {
+              const position = timelineNodePositions[index];
+              const nodeXPercent = (position.x / TIMELINE_VIEWBOX_WIDTH) * 100;
+              const cardPositionClassName =
+                position.x < TIMELINE_VIEWBOX_WIDTH / 2
+                  ? "right-[calc(100%-var(--node-x)+2.25rem)] max-sm:right-0"
+                  : "left-[calc(var(--node-x)+2.25rem)] max-sm:left-0";
+              const nodeStyle = {
+                left: `${nodeXPercent}%`,
+                top: position.y,
+              };
+              const cardStyle = {
+                "--node-x": `${nodeXPercent}%`,
+                "--node-y": `${position.y}px`,
+              } as CSSProperties;
+              const cardClassName =
+                milestone.status === "visited"
+                  ? "border-emerald-100 bg-emerald-50/35"
+                  : milestone.status === "available"
+                    ? "border-slate-200 bg-white/95"
+                    : "border-slate-200 bg-slate-100/80 opacity-60";
+              const nodeClassName =
+                milestone.status === "visited"
+                  ? "border-emerald-500 bg-emerald-500 text-white"
+                  : milestone.status === "available"
+                    ? "border-slate-300 bg-white text-slate-700"
+                    : "border-slate-300 bg-slate-300 text-slate-500 opacity-80";
 
-                return (
-                  <div key={milestone.level} className="relative py-2">
+              return (
+                <div key={milestone.level}>
+                  <article
+                    className={`animate-node-fade-in absolute top-[var(--node-y)] w-[min(34%,18rem)] -translate-y-1/2 rounded-xl border p-3.5 shadow-sm shadow-slate-200/30 transition duration-200 hover:scale-[1.01] max-sm:left-0 max-sm:right-0 max-sm:top-[calc(var(--node-y)+2.75rem)] max-sm:w-auto max-sm:translate-y-0 ${cardPositionClassName} ${cardClassName} ${
+                      milestone.isCurrent ? "ring-1 ring-amber-300/70" : ""
+                    }`}
+                    style={{
+                      ...cardStyle,
+                      animationDelay: `${index * 22}ms`,
+                    }}
+                  >
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Level {milestone.level}
+                    </p>
+                    <h3 className="mt-1 font-medium text-slate-900">{milestone.name}</h3>
+                    <p className="mt-2 text-sm text-slate-600">
+                      {milestone.status === "visited"
+                        ? "Visited"
+                        : milestone.status === "available"
+                          ? "Available"
+                          : "Locked"}
+                    </p>
+                  </article>
+
+                  <div
+                    className="absolute -translate-x-1/2 -translate-y-1/2"
+                    style={nodeStyle}
+                  >
                     <div
-                      className={`flex ${isRightAligned ? "justify-end pr-[8%]" : "justify-start pl-[8%]"}`}
-                    >
-                      <article
-                        className={`animate-node-fade-in w-[42%] rounded-xl border p-3.5 shadow-sm shadow-slate-200/30 transition duration-200 hover:scale-[1.01] ${cardClassName} ${
-                          milestone.isCurrent ? "ring-1 ring-amber-300/70" : ""
-                        }`}
-                        style={{ animationDelay: `${index * 22}ms` }}
-                      >
-                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                          Level {milestone.level}
-                        </p>
-                        <h3 className="mt-1 font-medium text-slate-900">{milestone.name}</h3>
-                        <p className="mt-2 text-sm text-slate-600">
-                          {milestone.status === "visited"
-                            ? "Visited"
-                            : milestone.status === "available"
-                              ? "Available"
-                              : "Locked"}
-                        </p>
-                      </article>
-                    </div>
-
-                    <div
-                      className={`absolute top-[34px] h-5 w-[8%] border-t border-slate-300/90 ${
-                        isRightAligned
-                          ? "left-1/2 rounded-tr-2xl border-r translate-x-1"
-                          : "right-1/2 rounded-tl-2xl border-l -translate-x-1"
+                      className={`animate-node-fade-in flex h-11 w-11 items-center justify-center rounded-full border text-xs font-semibold shadow-md transition duration-200 hover:scale-105 ${
+                        nodeClassName
+                      } ${
+                        milestone.isCurrent
+                          ? "scale-110 ring-4 ring-amber-300/50 shadow-[0_0_0_8px_rgba(251,191,36,0.14)]"
+                          : ""
                       }`}
-                    />
-
-                    <div className="absolute left-1/2 top-[18px] -translate-x-1/2">
-                      <div
-                        className={`animate-node-fade-in flex h-11 w-11 items-center justify-center rounded-full border text-xs font-semibold shadow-md transition duration-200 hover:scale-105 ${
-                          nodeClassName
-                        } ${
-                          milestone.isCurrent
-                            ? "scale-110 ring-4 ring-amber-300/50 shadow-[0_0_0_8px_rgba(251,191,36,0.14)]"
-                            : ""
-                        }`}
-                        style={{ animationDelay: `${index * 22 + 80}ms` }}
-                      >
-                        {milestone.status === "locked" ? "\uD83D\uDD12" : milestone.level}
-                      </div>
+                      style={{ animationDelay: `${index * 22 + 80}ms` }}
+                    >
+                      {milestone.status === "locked" ? "\uD83D\uDD12" : milestone.level}
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
