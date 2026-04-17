@@ -1,13 +1,17 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { ParkCard } from "@/components/parks";
 import { useParks } from "@/components/providers/ParksProvider";
-import { parks } from "@/lib/parks";
+import { parks as fallbackParks } from "@/lib/parks";
+import type { NationalPark } from "@/types";
 
 type ParkFilter = "all" | "visited" | "wishlist" | "not-added";
 type ParksTab = "explore" | "milestones";
 type MilestoneStatus = "visited" | "available" | "locked";
+type ParksApiResponse = {
+  parks?: NationalPark[];
+};
 
 const TOTAL_MILESTONES: number = 63;
 const TIMELINE_VIEWBOX_WIDTH = 1000;
@@ -41,9 +45,39 @@ function buildTimelinePath(positions: TimelineNodePosition[]): string {
 
 export default function ParksPage() {
   const { isInWishlist, isVisited } = useParks();
+  const [parks, setParks] = useState<NationalPark[]>(fallbackParks);
+  const [isLoadingParks, setIsLoadingParks] = useState(true);
   const [activeTab, setActiveTab] = useState<ParksTab>("explore");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<ParkFilter>("all");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadParks() {
+      try {
+        const response = await fetch("/api/parks");
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as ParksApiResponse;
+        if (isMounted && payload.parks?.length) {
+          setParks(payload.parks);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingParks(false);
+        }
+      }
+    }
+
+    loadParks();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const filteredParks = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -71,7 +105,7 @@ export default function ParksPage() {
 
       return true;
     });
-  }, [activeFilter, isInWishlist, isVisited, searchQuery]);
+  }, [activeFilter, isInWishlist, isVisited, parks, searchQuery]);
 
   const milestones = useMemo(() => {
     let canUnlockLevel = true;
@@ -104,7 +138,7 @@ export default function ParksPage() {
         isCurrent: isCurrentMilestone,
       };
     });
-  }, [isVisited]);
+  }, [isVisited, parks]);
 
   const completedMilestones = milestones.filter((milestone) => milestone.status === "visited").length;
   const milestoneProgress =
@@ -129,6 +163,9 @@ export default function ParksPage() {
         <h2 className="text-4xl font-semibold tracking-tight text-slate-900">National Parks</h2>
         <p className="max-w-2xl text-base text-slate-600">
           Explore iconic U.S. parks and plan your next adventure.
+        </p>
+        <p className="text-sm text-slate-500">
+          {isLoadingParks ? "Loading parks from the National Park Service..." : `${parks.length} parks loaded`}
         </p>
       </div>
 

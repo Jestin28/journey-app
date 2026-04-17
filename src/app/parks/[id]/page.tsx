@@ -2,7 +2,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { ParkActions, ParkStatusBadge } from "@/components/parks";
 import { getParkImageUrl } from "@/lib/parkImages";
-import { getParkById } from "@/lib/parks";
+import { getNationalParkById } from "@/lib/nps";
 
 type ParkDetailPageProps = {
   params: {
@@ -10,8 +10,8 @@ type ParkDetailPageProps = {
   };
 };
 
-export default function ParkDetailPage({ params }: ParkDetailPageProps) {
-  const park = getParkById(params.id);
+export default async function ParkDetailPage({ params }: ParkDetailPageProps) {
+  const park = await getNationalParkById(params.id);
 
   if (!park) {
     notFound();
@@ -21,7 +21,7 @@ export default function ParkDetailPage({ params }: ParkDetailPageProps) {
     <section className="space-y-8">
       <div className="relative h-72 overflow-hidden rounded-3xl border border-slate-200 shadow-sm shadow-slate-200/60 sm:h-80">
         <Image
-          src={getParkImageUrl(park.id)}
+          src={park.imageUrl ?? getParkImageUrl(park.id)}
           alt={park.name}
           fill
           priority

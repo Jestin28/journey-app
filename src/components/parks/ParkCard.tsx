@@ -25,8 +25,8 @@ export function ParkCard({ park }: ParkCardProps) {
       return FALLBACK_IMAGE_URL;
     }
 
-    return getParkImageUrl(park.id);
-  }, [hasImageError, park.id]);
+    return park.imageUrl ?? getParkImageUrl(park.id);
+  }, [hasImageError, park.id, park.imageUrl]);
 
   const statusLabel = visited ? "Visited" : wishlist ? "Wishlist" : "Not added";
   const statusClassName = visited

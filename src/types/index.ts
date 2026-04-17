@@ -14,4 +14,5 @@ export type NationalPark = {
   state: string;
   coordinates: NationalParkCoordinates;
   description: string;
+  imageUrl?: string;
 };
