@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { AuthButton } from "@/components/auth";
 
 const navLinks = [
   { href: "/", label: "Dashboard" },
@@ -30,21 +31,24 @@ export function Header() {
           Journey
         </Link>
 
-        <nav className="hidden items-center gap-1 rounded-xl bg-slate-100/80 p-1 md:flex">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                isActivePath(pathname, link.href)
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-600 hover:bg-white hover:text-slate-900"
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
+        <div className="hidden items-center gap-3 md:flex">
+          <nav className="flex items-center gap-1 rounded-xl bg-slate-100/80 p-1">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                  isActivePath(pathname, link.href)
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-600 hover:bg-white hover:text-slate-900"
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+          <AuthButton />
+        </div>
 
         <button
           type="button"
@@ -96,6 +100,9 @@ export function Header() {
               {link.label}
             </Link>
           ))}
+          <div className="border-t border-slate-200 pt-3">
+            <AuthButton />
+          </div>
         </nav>
       </div>
     </header>
