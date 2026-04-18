@@ -10,11 +10,19 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type { NationalPark } from "@/types";
+
+type ParksApiResponse = {
+  parks?: NationalPark[];
+};
 
 type ParksContextValue = {
+  parks: NationalPark[];
   visitedParkIds: string[];
   wishlistParkIds: string[];
   isStorageReady: boolean;
+  isParksLoading: boolean;
+  parksError: string;
   addToVisited: (parkId: string) => void;
   removeFromVisited: (parkId: string) => void;
   addToWishlist: (parkId: string) => void;
@@ -181,9 +189,48 @@ type ParksProviderProps = {
 
 export function ParksProvider({ children }: ParksProviderProps) {
   const [state, dispatch] = useReducer(parksReducer, INITIAL_PARKS_STATE);
+  const [parks, setParks] = useState<NationalPark[]>([]);
   const [isStorageReady, setIsStorageReady] = useState(false);
+  const [isParksLoading, setIsParksLoading] = useState(true);
+  const [parksError, setParksError] = useState("");
 
   const { visitedParkIds, wishlistParkIds } = state;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadParks() {
+      setIsParksLoading(true);
+      setParksError("");
+
+      try {
+        const response = await fetch("/api/parks");
+        if (!response.ok) {
+          throw new Error("Unable to load parks.");
+        }
+
+        const payload = (await response.json()) as ParksApiResponse;
+        if (isMounted) {
+          setParks(payload.parks ?? []);
+        }
+      } catch {
+        if (isMounted) {
+          setParks([]);
+          setParksError("Unable to load parks from the National Park Service.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsParksLoading(false);
+        }
+      }
+    }
+
+    loadParks();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     dispatch({ type: "hydrate", state: readStoredParksState() });
@@ -251,9 +298,12 @@ export function ParksProvider({ children }: ParksProviderProps) {
 
   const contextValue = useMemo<ParksContextValue>(
     () => ({
+      parks,
       visitedParkIds,
       wishlistParkIds,
       isStorageReady,
+      isParksLoading,
+      parksError,
       addToVisited,
       removeFromVisited,
       addToWishlist,
@@ -262,9 +312,12 @@ export function ParksProvider({ children }: ParksProviderProps) {
       isInWishlist,
     }),
     [
+      parks,
       visitedParkIds,
       wishlistParkIds,
       isStorageReady,
+      isParksLoading,
+      parksError,
       addToVisited,
       removeFromVisited,
       addToWishlist,

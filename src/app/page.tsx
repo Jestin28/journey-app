@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParks } from "@/components/providers/ParksProvider";
-import { parks } from "@/lib/parks";
 
 function shuffleArray<T>(items: T[]): T[] {
   const nextItems = [...items];
@@ -17,12 +16,13 @@ function shuffleArray<T>(items: T[]): T[] {
 }
 
 export default function Home() {
-  const { visitedParkIds, wishlistParkIds } = useParks();
+  const { isParksLoading, parks, parksError, visitedParkIds, wishlistParkIds } = useParks();
   const [suggestionSeed, setSuggestionSeed] = useState(0);
   const [heroOffsetY, setHeroOffsetY] = useState(0);
   const totalParks = parks.length;
-  const visitedCount = visitedParkIds.length;
-  const wishlistCount = wishlistParkIds.length;
+  const loadedParkIds = useMemo(() => new Set(parks.map((park) => park.id)), [parks]);
+  const visitedCount = visitedParkIds.filter((parkId) => loadedParkIds.has(parkId)).length;
+  const wishlistCount = wishlistParkIds.filter((parkId) => loadedParkIds.has(parkId)).length;
   const progressPercentage = totalParks === 0 ? 0 : Math.round((visitedCount / totalParks) * 100);
   const progressMessage =
     progressPercentage < 20
@@ -38,11 +38,11 @@ export default function Home() {
     void suggestionSeed;
     const unvisitedParks = parks.filter((park) => !visitedParkIds.includes(park.id));
     const preferredParks = unvisitedParks.filter((park) => !wishlistParkIds.includes(park.id));
-    const fallbackParks = unvisitedParks.filter((park) => wishlistParkIds.includes(park.id));
+    const wishlistBackfillParks = unvisitedParks.filter((park) => wishlistParkIds.includes(park.id));
 
-    const prioritizedParks = [...shuffleArray(preferredParks), ...shuffleArray(fallbackParks)];
+    const prioritizedParks = [...shuffleArray(preferredParks), ...shuffleArray(wishlistBackfillParks)];
     return prioritizedParks.slice(0, 3);
-  }, [suggestionSeed, visitedParkIds, wishlistParkIds]);
+  }, [parks, suggestionSeed, visitedParkIds, wishlistParkIds]);
 
   useEffect(() => {
     let animationFrameId = 0;
@@ -102,6 +102,11 @@ export default function Home() {
           >
             Explore Parks
           </Link>
+          <p className="text-sm text-white/80 [text-shadow:0_1px_12px_rgba(0,0,0,0.5)]">
+            {isParksLoading
+              ? "Loading parks from the National Park Service..."
+              : parksError || `${totalParks} parks loaded from the National Park Service`}
+          </p>
         </div>
       </div>
 

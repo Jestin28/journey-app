@@ -3,7 +3,6 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { ParkCard } from "@/components/parks";
 import { useParks } from "@/components/providers/ParksProvider";
-import type { NationalPark } from "@/types";
 
 type ParkFilter = "all" | "visited" | "wishlist" | "not-added";
 type ParksTab = "explore" | "milestones";
@@ -39,12 +38,8 @@ function buildTimelinePath(positions: TimelineNodePosition[]): string {
   }, `M ${firstPosition.x} ${firstPosition.y}`);
 }
 
-type ParksPageClientProps = {
-  parks: NationalPark[];
-};
-
-export function ParksPageClient({ parks }: ParksPageClientProps) {
-  const { isInWishlist, isVisited } = useParks();
+export function ParksPageClient() {
+  const { isInWishlist, isParksLoading, isVisited, parks, parksError } = useParks();
   const [activeTab, setActiveTab] = useState<ParksTab>("explore");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<ParkFilter>("all");
@@ -134,7 +129,11 @@ export function ParksPageClient({ parks }: ParksPageClientProps) {
         <p className="max-w-2xl text-base text-slate-600">
           Explore iconic U.S. parks and plan your next adventure.
         </p>
-        <p className="text-sm text-slate-500">{parks.length} parks loaded from the National Park Service</p>
+        <p className="text-sm text-slate-500">
+          {isParksLoading
+            ? "Loading parks from the National Park Service..."
+            : parksError || `${parks.length} parks loaded from the National Park Service`}
+        </p>
       </div>
 
       <div className="inline-flex rounded-xl bg-slate-100 p-1">
@@ -192,7 +191,7 @@ export function ParksPageClient({ parks }: ParksPageClientProps) {
 
           {filteredParks.length === 0 ? (
             <div className="rounded-2xl border border-slate-200/80 bg-white p-8 text-sm text-slate-600 shadow-sm shadow-slate-200/60">
-              No parks match your current search and filter.
+              {isParksLoading ? "Loading parks..." : parksError || "No parks match your current search and filter."}
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">

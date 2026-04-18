@@ -1,4 +1,3 @@
-import fallbackParks from "@/data/parks.json";
 import type { NationalPark } from "@/types";
 
 type NpsImage = {
@@ -75,10 +74,6 @@ export type ParkItinerary = {
 const NPS_API_BASE_URL = "https://developer.nps.gov/api/v1";
 const NPS_PARKS_LIMIT = "500";
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
-
-function getFallbackParks(): NationalPark[] {
-  return fallbackParks as NationalPark[];
-}
 
 function getNpsHeaders(): HeadersInit {
   const apiKey = process.env.NPS_API_KEY;
@@ -422,18 +417,6 @@ function buildItineraryDays(
   });
 }
 
-function fallbackParkToNpsPark(park: NationalPark): NpsPark {
-  return {
-    parkCode: park.id,
-    fullName: park.name,
-    states: park.state,
-    description: park.description,
-    latitude: String(park.coordinates.lat),
-    longitude: String(park.coordinates.lng),
-    images: park.imageUrl ? [{ url: park.imageUrl }] : undefined,
-  };
-}
-
 export async function generateParkItineraries(
   parkCode: string,
   startDate: string,
@@ -441,9 +424,8 @@ export async function generateParkItineraries(
 ): Promise<ParkItinerary[]> {
   const totalDays = Math.max(getTripLength(startDate, endDate), 1);
   const dateRange = formatDateRange(startDate, endDate);
-  const fallbackPark = getFallbackParks().find((park) => park.id === parkCode);
 
-  let park: NpsPark | null = fallbackPark ? fallbackParkToNpsPark(fallbackPark) : null;
+  let park: NpsPark | null = null;
   let alerts: NpsAlert[] = [];
 
   if (hasNpsApiKey()) {
@@ -485,24 +467,20 @@ export async function generateParkItineraries(
 
 export async function getNationalParks(): Promise<NationalPark[]> {
   if (!hasNpsApiKey()) {
-    return getFallbackParks();
+    throw new Error("NPS_API_KEY is required to load parks.");
   }
 
-  try {
-    return await requestNpsParks(
-      new URLSearchParams({
-        limit: NPS_PARKS_LIMIT,
-        fields: "images",
-      }),
-    );
-  } catch {
-    return getFallbackParks();
-  }
+  return requestNpsParks(
+    new URLSearchParams({
+      limit: NPS_PARKS_LIMIT,
+      fields: "images",
+    }),
+  );
 }
 
 export async function getNationalParkById(id: string): Promise<NationalPark | undefined> {
   if (!hasNpsApiKey()) {
-    return getFallbackParks().find((park) => park.id === id);
+    return undefined;
   }
 
   try {
@@ -516,6 +494,6 @@ export async function getNationalParkById(id: string): Promise<NationalPark | un
 
     return parks[0];
   } catch {
-    return getFallbackParks().find((park) => park.id === id);
+    return undefined;
   }
 }

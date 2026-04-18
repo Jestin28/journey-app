@@ -1,8 +1,8 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import { useParks } from "@/components/providers/ParksProvider";
 import { getParkImageUrl } from "@/lib/parkImages";
-import type { NationalPark } from "@/types";
 
 type ItineraryDay = {
   day: number;
@@ -57,11 +57,8 @@ function normalizeItinerary(itinerary: ApiTripItinerary): TripItinerary {
   };
 }
 
-type PlanTripPageClientProps = {
-  parks: NationalPark[];
-};
-
-export function PlanTripPageClient({ parks }: PlanTripPageClientProps) {
+export function PlanTripPageClient() {
+  const { isParksLoading, parks, parksError } = useParks();
   const [selectedParkId, setSelectedParkId] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -174,6 +171,7 @@ export function PlanTripPageClient({ parks }: PlanTripPageClientProps) {
                 </option>
               ))}
             </select>
+            {parksError ? <span className="text-sm text-red-600">{parksError}</span> : null}
           </label>
 
           <label className="space-y-2">
@@ -201,10 +199,10 @@ export function PlanTripPageClient({ parks }: PlanTripPageClientProps) {
 
         <button
           type="submit"
-          disabled={isGenerating}
+          disabled={isGenerating || isParksLoading || parks.length === 0}
           className="mt-5 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
         >
-          {isGenerating ? "Generating..." : "Generate Itineraries"}
+          {isGenerating ? "Generating..." : isParksLoading ? "Loading parks..." : "Generate Itineraries"}
         </button>
       </form>
 

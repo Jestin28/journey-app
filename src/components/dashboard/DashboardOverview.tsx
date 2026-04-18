@@ -3,12 +3,6 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useParks } from "@/components/providers/ParksProvider";
-import type { NationalPark } from "@/types";
-
-type DashboardOverviewProps = {
-  totalParks: number;
-  parks: NationalPark[];
-};
 
 type SortMode = "random" | "state";
 
@@ -22,13 +16,15 @@ function getSeededWeight(value: string, seed: number) {
   return Math.abs(hash);
 }
 
-export function DashboardOverview({ totalParks, parks }: DashboardOverviewProps) {
-  const { visitedParkIds, wishlistParkIds } = useParks();
+export function DashboardOverview() {
+  const { isParksLoading, parks, parksError, visitedParkIds, wishlistParkIds } = useParks();
   const [sortMode, setSortMode] = useState<SortMode>("random");
   const [randomSeed, setRandomSeed] = useState(() => Date.now());
 
-  const visitedCount = visitedParkIds.length;
-  const wishlistCount = wishlistParkIds.length;
+  const loadedParkIds = useMemo(() => new Set(parks.map((park) => park.id)), [parks]);
+  const visitedCount = visitedParkIds.filter((parkId) => loadedParkIds.has(parkId)).length;
+  const wishlistCount = wishlistParkIds.filter((parkId) => loadedParkIds.has(parkId)).length;
+  const totalParks = parks.length;
   const progressPercentage = totalParks === 0 ? 0 : Math.round((visitedCount / totalParks) * 100);
   const suggestions = useMemo(() => {
     const nonVisitedParks = parks.filter((park) => !visitedParkIds.includes(park.id));
@@ -40,7 +36,7 @@ export function DashboardOverview({ totalParks, parks }: DashboardOverviewProps)
             (a, b) => getSeededWeight(a.id, randomSeed) - getSeededWeight(b.id, randomSeed),
           );
 
-    return sortedParks.slice(0, 5);
+    return sortedParks.slice(0, 3);
   }, [parks, randomSeed, sortMode, visitedParkIds]);
 
   return (
@@ -48,6 +44,11 @@ export function DashboardOverview({ totalParks, parks }: DashboardOverviewProps)
       <div className="space-y-1">
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         <p className="text-slate-600">Track your national park goals.</p>
+        <p className="text-sm text-slate-500">
+          {isParksLoading
+            ? "Loading parks from the National Park Service..."
+            : parksError || `${totalParks} parks loaded from the National Park Service`}
+        </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -91,7 +92,7 @@ export function DashboardOverview({ totalParks, parks }: DashboardOverviewProps)
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm text-slate-500">Suggested Parks</p>
-            <p className="text-sm text-slate-600">3-5 parks you have not visited yet.</p>
+            <p className="text-sm text-slate-600">Three parks you have not visited yet.</p>
           </div>
           <div className="flex gap-2">
             <button
