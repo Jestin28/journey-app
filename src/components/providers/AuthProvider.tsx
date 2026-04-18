@@ -6,7 +6,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -88,7 +87,6 @@ function hasPersistedSupabaseSession() {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const handledOAuthCallbackRef = useRef(false);
 
   useEffect(() => {
     if (!supabase) {
@@ -130,38 +128,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         clearOAuthCallbackParams();
       }
 
-      if (callbackParams.code && !handledOAuthCallbackRef.current) {
-        handledOAuthCallbackRef.current = true;
-
-        const { data: existingSessionData, error: existingSessionError } = await supabaseClient.auth.getSession();
-
-        console.info("[auth] callback code detected", {
-          hasExistingSession: Boolean(existingSessionData.session),
-          existingSessionError: existingSessionError?.message ?? null,
-        });
-
-        if (!existingSessionData.session) {
-          const { data, error } = await supabaseClient.auth.exchangeCodeForSession(callbackParams.code);
-
-          if (error) {
-            console.error("[auth] failed to exchange OAuth code for session", {
-              message: error.message,
-              status: error.status,
-            });
-          } else {
-            console.info("[auth] OAuth code exchanged for session", {
-              userEmail: data.session?.user.email ?? null,
-              expiresAt: data.session?.expires_at ?? null,
-              persistedToLocalStorage: hasPersistedSupabaseSession(),
-            });
-
-            if (isMounted) {
-              setUser(data.session?.user ?? null);
-            }
-          }
-        }
-
-        clearOAuthCallbackParams();
+      if (callbackParams.code) {
+        console.info("[auth] callback code detected; waiting for Supabase URL session detection");
       }
 
       const { data, error } = await supabaseClient.auth.getUser();
